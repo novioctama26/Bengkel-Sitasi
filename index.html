@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bengkel Sitasi 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=Source+Serif+4:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0F3557;--sea:#2B7A9B;--bg:#D6E3EC;--ink:#142536;--ok:#1E8A68;--bad:#C8432B;--line:#9FB6C7}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:"Public Sans",system-ui,sans-serif;color:var(--ink);background:var(--bg);display:flex;flex-direction:column;height:100dvh}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;background:var(--navy);color:#fff}
+header b{font-size:1rem}
+#prog{font-size:.85rem;opacity:.9;text-align:right}
+#bar{height:4px;background:#0a2640}
+#bar i{display:block;height:100%;width:0;background:#7CC4DE;transition:width .3s}
+#stage{flex:1;position:relative;min-height:0;touch-action:none;cursor:grab}
+#stage canvas{display:block;width:100%;height:100%}
+#hint{position:absolute;left:12px;top:8px;font-size:.78rem;color:#35566e;pointer-events:none}
+footer{background:#fff;border-top:1px solid var(--line);padding:12px 16px;display:grid;gap:8px}
+#task{font-weight:600}
+#fb{min-height:2.6em;font-size:.93rem;line-height:1.45}
+#fb.ok{color:var(--ok)}#fb.bad{color:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;font-weight:600;border:0;border-radius:6px;padding:10px 18px;background:var(--navy);color:#fff;cursor:pointer}
+button.alt{background:#fff;color:var(--navy);border:1.5px solid var(--navy)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid #E3A21A;outline-offset:2px}
+#ov{position:fixed;inset:0;background:rgba(15,53,87,.72);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
+#ov.off{display:none}
+.card{background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:92dvh;overflow:auto;padding:24px}
+.card h1{font-size:1.45rem;margin:0 0 8px}
+.card p,.card li{line-height:1.55;font-size:.95rem}
+.card ol,.card ul{padding-left:20px;margin:8px 0}
+.eg{font-family:"Source Serif 4",Georgia,serif;font-size:1.05rem;background:#EEF4F8;border-left:4px solid var(--sea);padding:8px 12px;margin:10px 0}
+input{font:inherit;width:100%;padding:9px;border:1.5px solid var(--line);border-radius:6px;margin:6px 0}
+.small{font-size:.8rem;color:#4a6478}
+.card>div{display:none}.card>div.on{display:block}
+</style>
+</head>
+<body>
+<header><b>Bengkel Sitasi 3D</b><div id="prog"></div></header>
+<div id="bar"><i id="barf"></i></div>
+<div id="stage"><div id="hint">Geser untuk memutar sudut pandang. Klik atau ketuk kepingan untuk berinteraksi.</div></div>
+<footer>
+  <div id="task"></div>
+  <div id="fb" role="status" aria-live="polite"></div>
+  <div class="row"><button id="chk">Periksa</button><button id="nxt" class="alt" disabled>Lanjut</button><button id="rst" class="alt">Ulangi soal</button></div>
+</footer>
+
+<div id="ov"><div class="card">
+  <div id="c-intro" class="on">
+    <h1>Bengkel Sitasi 3D</h1>
+    <p>Kamu akan memegang kepingan kalimat di ruang 3D. Susun, lengkapi, dan periksa sitasi sampai letak nama, tahun, kurung, dan koma sudah tepat. Format mengikuti gaya APA dalam teks berbahasa Indonesia.</p>
+    <div class="eg">Menurut Rahmawati (2024), briket sekam padi menghasilkan nilai kalor yang tinggi.</div>
+    <ol>
+      <li>Susun kalimat (4 soal)</li>
+      <li>Pasang tanda baca (3 soal)</li>
+      <li>Temukan kesalahan (4 soal)</li>
+      <li>Latihan baru dari AI (3 soal)</li>
+    </ol>
+    <p class="small">Perkiraan waktu 15–20 menit. Setiap soal diperiksa langsung dan dijelaskan.</p>
+    <button id="go">Mulai</button>
+  </div>
+  <div id="c-gen">
+    <h1>Latihan baru dari AI</h1>
+    <p>AI menyusun tiga soal baru dengan jenis kesalahan sitasi yang berbeda, bertema otomasi industri. Isi kunci API Anthropic agar soal dibuat oleh model Claude. Tanpa kunci, soal dibuat oleh generator otomatis berbasis aturan.</p>
+    <label for="key" class="small">Kunci API (opsional)</label>
+    <input id="key" type="password" autocomplete="off" placeholder="sk-ant-...">
+    <p class="small">Kunci hanya dipakai di browsermu untuk satu permintaan ini dan tidak disimpan.</p>
+    <div class="row"><button id="gbtn">Buat 3 soal</button></div>
+    <p id="gmsg" class="small" role="status"></p>
+  </div>
+  <div id="c-end">
+    <h1>Selesai</h1>
+    <p id="score"></p>
+    <p><b>Empat aturan yang perlu diingat</b></p>
+    <ol>
+      <li>Sitasi naratif: tahun dalam kurung tepat setelah nama, misalnya Rahmawati (2024). Jika diawali “Menurut”, tambahkan koma setelah kurung.</li>
+      <li>Sitasi di akhir kalimat: nama dan tahun dalam satu kurung, titik kalimat setelah kurung tutup.</li>
+      <li>Nama penulis ditulis tanpa inisial dan tidak diberi kurung sendiri. Dua penulis dihubungkan &amp; di dalam kurung.</li>
+      <li>Tiga penulis atau lebih: nama pertama diikuti dkk. atau <i>et al.</i> lengkap dengan titik.</li>
+    </ol>
+    <button id="again">Main lagi dari awal</button>
+  </div>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+const FONT='"Source Serif 4",Georgia,serif';
+const S=a=>({s:a});
+const A=[
+ {t:'build',w:['Menurut','Rahmawati','(2024)',',','briket sekam padi','menghasilkan','nilai kalor yang tinggi','.'],ex:'Sitasi naratif dengan “Menurut”: nama penulis, tahun dalam kurung, lalu koma.'},
+ {t:'build',w:['Rahmawati','(2024)','menjelaskan bahwa','sensor suhu','memengaruhi akurasi kontrol','.'],ex:'Kalau kalimat memakai “menjelaskan bahwa”, jangan menambahkan “Menurut”. Tahun tetap dalam kurung tepat setelah nama.'},
+ {t:'build',w:['Sensor tekanan','harus dikalibrasi','secara berkala','(Santoso & Wijaya, 2023)','.'],ex:'Sitasi di akhir kalimat: nama dan tahun dalam satu kurung, titik kalimat setelah kurung tutup.'},
+ {t:'build',w:['Hasil pengujian','menunjukkan','error di bawah 2%','(Pratama dkk., 2022)','.'],ex:'Tiga penulis atau lebih: nama pertama + dkk. Titik pada dkk. tidak boleh hilang.'}
+];
+const B=[
+ {t:'slot',w:['Menurut','Rahmawati',S('('),'2024',S(')'),S(','),'kapasitas baterai menurun','.'],ex:'Menurut Rahmawati (2024), kapasitas baterai menurun. Tahun dalam kurung, lalu koma setelah kurung tutup.'},
+ {t:'slot',w:['Penggunaan PLC meningkatkan efisiensi produksi',S('('),'Wijaya & Putra',S(','),'2023',S(')'),S('.')],ex:'Penggunaan PLC meningkatkan efisiensi produksi (Wijaya & Putra, 2023). Koma memisahkan nama dan tahun; titik kalimat ada di luar kurung.'},
+ {t:'slot',w:['Wijaya dkk.',S('('),'2022',S(')'),'menyatakan bahwa','pompa sentrifugal perlu dirawat','.'],ex:'Wijaya dkk. (2022) menyatakan bahwa pompa sentrifugal perlu dirawat. Pada sitasi naratif tidak ada koma setelah tahun.'}
+];
+const C=[
+ {t:'find',w:['Menurut','Rahmawati','2024','menjelaskan bahwa','suhu ruang','memengaruhi kualitas sinyal','.'],x:[2,3],ex:'Benar: Menurut Rahmawati (2024), suhu ruang memengaruhi kualitas sinyal. Tahun harus dalam kurung dan diikuti koma, dan “menjelaskan bahwa” berlebihan bersama “Menurut”.'},
+ {t:'find',w:['Pengujian dilakukan secara manual','(A.R. Pratama & Praswanto, 2022)','.'],x:[1],ex:'Benar: (Pratama & Praswanto, 2022). Inisial nama tidak ditulis dalam sitasi.'},
+ {t:'find',w:['Rukmana','et al','(2023)','menyatakan bahwa','sensor induktif tahan debu','.'],x:[1],ex:'Benar: Rukmana dkk. (2023) atau Rukmana et al. (2023). Singkatannya memakai titik; et al. dicetak miring.'},
+ {t:'find',w:['Semakin banyak rongga','semakin besar infiltrasi','(Kurniadi dan Himawan, 2019)','.'],x:[2],ex:'Benar: (Kurniadi & Himawan, 2019). Di dalam kurung, dua penulis dihubungkan dengan &.'}
+];
+const TOTAL=14;
+let items=[],i=0,score=0,tries=0,it=null,T=[],ans=[],shuf=[],locked=false,gen=[];
+const $=id=>document.getElementById(id);
+
+/* ---------- 3D ---------- */
+const stage=$('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff,.55));
+const sun=new THREE.DirectionalLight(0xffffff,.45);sun.position.set(-4,9,6);scene.add(sun);
+const cam=new THREE.PerspectiveCamera(40,1,.1,100);
+const table=new THREE.Mesh(new THREE.BoxGeometry(60,.2,40),new THREE.MeshStandardMaterial({color:0xBFD1DE}));
+table.position.y=-.1;scene.add(table);
+const rail=new THREE.Mesh(new THREE.BoxGeometry(12,.06,3.1),new THREE.MeshStandardMaterial({color:0x8FA9BC}));
+rail.position.set(0,.03,-1.9);scene.add(rail);
+let yaw=0,pitch=1.0,rowW=11.5,dist=14;
+function fit(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  renderer.setSize(w,h,false);cam.aspect=w/h;
+  rowW=cam.aspect<1?7.4:11.5;
+  dist=Math.max(12,1.3*(rowW/2+.7)/(Math.tan(20*Math.PI/180)*cam.aspect));
+  cam.updateProjectionMatrix();
+}
+function place(){
+  const tx=0,tz=.3;
+  cam.position.set(tx+dist*Math.sin(yaw)*Math.cos(pitch),dist*Math.sin(pitch),tz+dist*Math.cos(yaw)*Math.cos(pitch));
+  cam.lookAt(tx,0,tz);
+}
+addEventListener('resize',fit);
+
+const BG={'':'#FFFFFF',on:'#FFE3A3',ok:'#CFEFDF',bad:'#F8D3CB',blank:'#DCEAF3'};
+function mk(txt,kind){
+  const c=document.createElement('canvas'),x=c.getContext('2d');
+  x.font='600 64px '+FONT;
+  const px=kind==='slot'?90:Math.max(kind==='p'?64:120,Math.ceil(x.measureText(txt).width)+50);
+  c.width=px;c.height=110;
+  const tex=new THREE.CanvasTexture(c);tex.anisotropy=4;
+  const t={txt,kind,c,tex,w:px/100,st:'',id:0,val:'',ans:null,on:false};
+  t.draw=(state,label)=>{
+    t.st=state;const bg=BG[state]||BG[''];
+    x.clearRect(0,0,c.width,c.height);
+    x.fillStyle=bg;x.strokeStyle='#7F9BB0';x.lineWidth=5;
+    x.beginPath();x.roundRect?x.roundRect(4,4,c.width-8,102,14):x.rect(4,4,c.width-8,102);x.fill();x.stroke();
+    x.font='600 64px '+FONT;x.textAlign='center';x.textBaseline='middle';
+    x.fillStyle=state==='blank'?'#2B7A9B':'#142536';
+    x.fillText(label===undefined?txt:label,c.width/2,58);
+    tex.needsUpdate=true;
+  };
+  const side=new THREE.MeshStandardMaterial({color:0x7F9BB0});
+  const top=new THREE.MeshStandardMaterial({map:tex});
+  t.m=new THREE.Mesh(new THREE.BoxGeometry(t.w,.24,1.1),[side,side,top,side,side,side]);
+  t.m.userData={t,to:new THREE.Vector3()};
+  t.draw(kind==='slot'?'blank':'');
+  return t;
+}
+function gap(a,b){
+  if(b.kind==='p')return .02;
+  if(a.kind==='slot')return a.ans==='('?.02:.16;
+  if(b.kind==='slot')return b.ans==='('?.16:.02;
+  return .16;
+}
+function lay(list,z0){
+  const rows=[[]];let cur=0;
+  list.forEach((t,k)=>{
+    const g=k?gap(list[k-1],t):0;
+    if(rows[rows.length-1].length&&cur+g+t.w>rowW){rows.push([]);cur=0;}
+    const r=rows[rows.length-1],gg=r.length?g:0;r.push({t,gg});cur+=gg+t.w;
+  });
+  rows.forEach((r,ri)=>{
+    const tot=r.reduce((s,o)=>s+o.gg+o.t.w,0);let x=-tot/2;
+    r.forEach(o=>{x+=o.gg;o.t.m.userData.to.set(x+o.t.w/2,.12,z0+ri*1.4);x+=o.t.w;});
+  });
+}
+function relay(snap){
+  if(it.t==='build'){
+    lay(ans.map(k=>T[k]),-2.6);
+    lay(shuf.filter(k=>!ans.includes(k)).map(k=>T[k]),1.7);
+  }else lay(T,-.4);
+  if(snap)T.forEach(t=>t.m.position.copy(t.m.userData.to));
+}
+function clearTiles(){T.forEach(t=>{scene.remove(t.m);t.tex.dispose();t.m.geometry.dispose();});T=[];}
+
+const ray=new THREE.Raycaster(),ptr=new THREE.Vector2();
+let down=null;
+stage.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,yaw,pitch};stage.setPointerCapture(e.pointerId);stage.style.cursor='grabbing';});
+stage.addEventListener('pointermove',e=>{
+  if(!down)return;
+  yaw=Math.max(-.7,Math.min(.7,down.yaw-(e.clientX-down.x)*.005));
+  pitch=Math.max(.6,Math.min(1.35,down.pitch+(e.clientY-down.y)*.004));
+});
+stage.addEventListener('pointerup',e=>{
+  stage.style.cursor='grab';
+  if(!down)return;
+  const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;
+  if(moved>6)return;
+  const r=renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ptr,cam);
+  const h=ray.intersectObjects(T.map(t=>t.m))[0];
+  if(h)tap(h.object.userData.t);
+});
+renderer.setAnimationLoop(()=>{
+  place();
+  T.forEach(t=>{const m=t.m;m.position.lerp(m.userData.to,.2);m.position.y+=((t.on?.35:.12)-m.position.y)*.2;});
+  renderer.render(scene,cam);
+});
+
+/* ---------- Logika soal ---------- */
+const SLOTS=['','(',')',',','.'];
+function tap(t){
+  if(locked)return;
+  if(it.t==='build'){
+    ans=ans.includes(t.id)?ans.filter(k=>k!==t.id):[...ans,t.id];relay();
+  }else if(it.t==='slot'){
+    if(t.kind!=='slot')return;
+    t.val=SLOTS[(SLOTS.indexOf(t.val)+1)%SLOTS.length];
+    t.draw(t.val?'':'blank',t.val||'?');
+  }else{
+    t.on=!t.on;t.draw(t.on?'on':'');
+  }
+}
+function sentence(){
+  const a=it.w.map(w=>typeof w==='object'?w.s:w).join(' ');
+  return a.replace(/ ([,.)])/g,'$1').replace(/\( /g,'(');
+}
+function load(){
+  if(i===11&&!gen.length){$('ov').classList.remove('off');show('c-gen');return;}
+  if(i>=TOTAL){return end();}
+  it=items[i];tries=0;locked=false;
+  clearTiles();
+  it.w.forEach((w,k)=>{
+    const s=typeof w==='object';
+    const t=mk(s?'?':w,s?'slot':(w===','||w==='.')?'p':'w');
+    t.id=k;t.ans=s?w.s:null;T.push(t);scene.add(t.m);
+  });
+  if(it.t==='build'){
+    ans=[];shuf=T.map(t=>t.id);
+    do{shuf.sort(()=>Math.random()-.5);}while(shuf.length>1&&shuf.join()===T.map(t=>t.id).join());
+  }
+  rail.visible=it.t==='build';
+  relay(true);
+  const name=it.t==='build'?'Tahap 1 · Susun kalimat':it.t==='slot'?'Tahap 2 · Pasang tanda baca':it.ai?'Tahap 4 · Latihan dari AI':it.auto?'Tahap 4 · Latihan otomatis':'Tahap 3 · Temukan kesalahan';
+  $('prog').innerHTML='Soal '+(i+1)+' dari '+TOTAL+'<br>'+name;
+  $('barf').style.width=(i/TOTAL*100)+'%';
+  $('task').textContent=it.t==='build'?'Klik kepingan di rak bawah untuk memindahkannya ke rel atas, sehingga membentuk kalimat bersitasi yang benar. Klik lagi untuk mengembalikan.':it.t==='slot'?'Klik kotak berisi tanda tanya berulang kali untuk mengganti tanda baca sampai sitasinya benar.':'Klik kepingan yang penulisannya salah. Boleh lebih dari satu.';
+  $('fb').textContent='';$('fb').className='';
+  $('chk').disabled=false;$('nxt').disabled=true;
+}
+function check(){
+  if(locked)return;
+  tries++;let ok=false,msg='';
+  if(it.t==='build'){
+    ok=ans.length===T.length&&ans.map(k=>T[k].txt).join('|')===it.w.join('|');
+    msg='Urutan kepingan belum tepat.';
+  }else if(it.t==='slot'){
+    const bad=T.filter(t=>t.kind==='slot'&&t.val!==t.ans);
+    T.filter(t=>t.kind==='slot').forEach(t=>t.draw(t.val===t.ans?'ok':'bad',t.val||'?'));
+    ok=!bad.length;msg=bad.length+' tanda baca masih salah atau kosong.';
+  }else{
+    let hit=0;
+    T.forEach(t=>{const w=it.x.includes(t.id);if(t.on)t.draw(w?'ok':'bad');if(t.on&&w)hit++;});
+    const extra=T.filter(t=>t.on&&!it.x.includes(t.id)).length;
+    ok=hit===it.x.length&&!extra;
+    msg=extra?'Ada kepingan yang sebenarnya sudah benar (merah).':'Baru '+hit+' dari '+it.x.length+' kesalahan yang ditemukan.';
+  }
+  const fb=$('fb');
+  if(ok){
+    if(tries===1)score++;
+    done(true,'Tepat. '+(it.t==='find'?it.ex:sentence()+' — '+it.ex));
+  }else if(tries>=2){
+    if(it.t==='build'){ans=T.map(t=>t.id);relay();}
+    if(it.t==='slot')T.forEach(t=>{if(t.kind==='slot'){t.val=t.ans;t.draw('ok',t.ans);}});
+    if(it.t==='find')T.forEach(t=>t.draw(it.x.includes(t.id)?'ok':''));
+    done(false,'Jawaban yang benar ditampilkan. '+(it.t==='find'?it.ex:sentence()+' — '+it.ex));
+  }else{fb.className='bad';fb.textContent=msg+' Coba lagi.';}
+}
+function done(good,text){
+  locked=true;$('chk').disabled=true;$('nxt').disabled=false;
+  const fb=$('fb');fb.className=good?'ok':'bad';fb.textContent=text;
+}
+function end(){
+  $('barf').style.width='100%';
+  $('score').textContent='Skormu: '+score+' dari '+TOTAL+' soal benar pada percobaan pertama.';
+  $('ov').classList.remove('off');show('c-end');
+}
+function show(id){document.querySelectorAll('.card>div').forEach(d=>d.classList.toggle('on',d.id===id));}
+function start(){items=[...A,...B,...C];gen=[];i=0;score=0;$('ov').classList.add('off');load();}
+$('go').onclick=start;$('again').onclick=start;
+$('chk').onclick=check;
+$('nxt').onclick=()=>{i++;load();};
+$('rst').onclick=()=>{if(it){const j=i;locked=false;i=j;load();}};
+
+/* ---------- Generator latihan (GenAI + cadangan otomatis) ---------- */
+const PROMPT='Buat 3 soal latihan "temukan kesalahan sitasi" gaya APA untuk teks berbahasa Indonesia, untuk mahasiswa D4 Teknik Otomasi. Tema: PLC, sensor, SCADA, kontrol, atau otomasi industri. Setiap soal adalah satu kalimat yang dipecah menjadi 4 sampai 7 token pendek (tanda baca kalimat seperti titik akhir menjadi token sendiri). Minimal satu token berisi kesalahan sitasi. Gunakan jenis kesalahan yang berbeda di tiap soal, dipilih dari: tahun pada sitasi naratif tanpa kurung; inisial nama penulis di dalam sitasi; "et al" tanpa titik; "dan" sebagai pengganti & di dalam kurung; koma hilang setelah tahun pada sitasi "Menurut ...". Jawab HANYA dengan JSON array tanpa teks lain, bentuk: [{"tokens":["..."],"wrong":[indeks token salah, mulai dari 0],"fix":"Benar: ... penjelasan satu kalimat"}]';
+async function viaAI(key){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:PROMPT}]})});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const d=await r.json();
+  const txt=d.content.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
+  const arr=JSON.parse(txt);
+  if(!Array.isArray(arr))throw new Error('format');
+  const ok=arr.filter(o=>Array.isArray(o.tokens)&&o.tokens.length>1&&o.tokens.every(s=>typeof s==='string')&&Array.isArray(o.wrong)&&o.wrong.length&&o.wrong.every(n=>Number.isInteger(n)&&n>=0&&n<o.tokens.length)&&typeof o.fix==='string').slice(0,3);
+  if(ok.length<3)throw new Error('format');
+  return ok.map(o=>({t:'find',ai:true,w:o.tokens,x:o.wrong,ex:o.fix}));
+}
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function viaRules(){
+  const names=[['Hartono','Lestari'],['Nugroho','Saputra'],['Ramadhan','Putri'],['Firmansyah','Kusuma'],['Setiawan','Amalia'],['Prabowo','Utami']];
+  const topics=['PLC meningkatkan keandalan lini produksi','sensor ultrasonik mendeteksi level cairan dengan stabil','sistem SCADA mempercepat pemantauan mesin','kontrol PID menurunkan osilasi suhu','inverter menghemat energi pada motor pompa','HMI memudahkan operator membaca alarm'];
+  const types=['narr','init','etal','dan','koma'];
+  const out=[];
+  pick([0]);
+  [...types].sort(()=>Math.random()-.5).slice(0,3).forEach(ty=>{
+    const [a,b]=pick(names),y=2018+Math.floor(Math.random()*8),tp=pick(topics),ini=pick(['A.','M.','R.','S.']);
+    let o;
+    if(ty==='narr')o={w:[a,String(y),'menyatakan bahwa',tp,'.'],x:[1],ex:'Benar: '+a+' ('+y+') menyatakan bahwa '+tp+'. Tahun pada sitasi naratif ditulis dalam kurung.'};
+    if(ty==='init')o={w:[tp[0].toUpperCase()+tp.slice(1),'('+ini+' '+a+' & '+b+', '+y+')','.'],x:[1],ex:'Benar: ('+a+' & '+b+', '+y+'). Inisial tidak ditulis dalam sitasi.'};
+    if(ty==='etal')o={w:[a,'et al','('+y+')','menunjukkan bahwa',tp,'.'],x:[1],ex:'Benar: '+a+' dkk. ('+y+') atau '+a+' et al. ('+y+'). Singkatan memakai titik.'};
+    if(ty==='dan')o={w:[tp[0].toUpperCase()+tp.slice(1),'('+a+' dan '+b+', '+y+')','.'],x:[1],ex:'Benar: ('+a+' & '+b+', '+y+'). Di dalam kurung, dua penulis dihubungkan dengan &.'};
+    if(ty==='koma')o={w:['Menurut',a,'('+y+')',tp,'.'],x:[2],ex:'Benar: Menurut '+a+' ('+y+'), '+tp+'. Setelah kurung tahun pada kalimat berawalan “Menurut” perlu koma. Tandai kepingan tahun karena koma belum ada.'};
+    out.push({t:'find',auto:true,...o});
+  });
+  return out;
+}
+$('gbtn').onclick=async()=>{
+  const key=$('key').value.trim(),msg=$('gmsg');
+  $('gbtn').disabled=true;
+  let res;
+  if(key){
+    msg.textContent='Menghubungi AI, mohon tunggu…';
+    try{res=await viaAI(key);}catch(e){msg.textContent='AI tidak dapat dipakai ('+e.message+'). Memakai generator otomatis.';}
+  }
+  if(!res)res=viaRules();
+  items.push(...res);gen=res;
+  $('key').value='';$('gbtn').disabled=false;
+  $('ov').classList.add('off');load();
+};
+
+(async()=>{try{await document.fonts.load('600 64px "Source Serif 4"');}catch(e){}fit();})();
+</script>
+</body>
+</html>
